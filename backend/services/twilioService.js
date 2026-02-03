@@ -27,8 +27,8 @@ class TwilioService {
 
   formatBudgetReply(transaction, budgetStatus, categoryInfo) {
     const { amount, category, merchant, user } = transaction;
-    const { totalSpent, budgetAmount, remaining, percentUsed, daysLeftInMonth, warningLevel } = budgetStatus;
-
+    
+    // Phase 1: Simple response without budget info or warnings
     const icon = categoryInfo?.icon || '💰';
     const displayName = categoryInfo?.displayName || category;
 
@@ -37,23 +37,12 @@ class TwilioService {
     if (merchant) {
       message += ` (${merchant})`;
     }
-
-    message += `\n📊 ${displayName}: R${totalSpent.toFixed(0)} of R${budgetAmount.toFixed(0)} used (${percentUsed}%)`;
-    message += `\n💰 R${remaining.toFixed(0)} remaining | ${daysLeftInMonth} days left this month`;
-
-    if (warningLevel === 'over') {
-      const overspend = totalSpent - budgetAmount;
-      message = `🛑 OVER BUDGET: ${displayName} is R${overspend.toFixed(0)} over!\n` + message;
-    } else if (warningLevel === 'red') {
-      message = `🛑 STOP: ${displayName} budget is FULL!\n` + message;
-    } else if (warningLevel === 'orange') {
-      message = `🚨 ${displayName} is at ${percentUsed}%! Only R${remaining.toFixed(0)} left.\n` + message;
-    } else if (warningLevel === 'yellow') {
-      message = `⚠️ WARNING: ${displayName} is at ${percentUsed}% of budget!\n` + message;
-    } else if (warningLevel === 'gentle') {
-      message = `💬 Heads up: ${displayName} is ${percentUsed}% used.\n` + message;
+    
+    // Check if we have a streak and add it (will implement streak tracking later)
+    if (transaction.streak && transaction.streak > 1) {
+      message += `\n\nYou're on a ${transaction.streak}-day tracking streak! 🔥`;
     }
-
+    
     return message;
   }
 

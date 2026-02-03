@@ -1,7 +1,65 @@
 @import "tailwindcss";
 
+:root {
+  --color-groceries: #7cb87a;
+  --color-transport: #4a90e2;
+  --color-dining: #c47fd4;
+  --color-entertainment: #f5a623;
+  --color-utilities: #50e3c2;
+  --color-housing: #d0021b;
+  --color-shopping: #bd10e0;
+  --color-health: #7ed321;
+  --color-savings: #417505;
+  --color-other: #9013fe;
+  
+  --color-coral-400: #ff6b6b;
+  --color-coral-500: #ff5252;
+  --color-coral-600: #ff3838;
+
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
 body {
-  background-color: #f9fafb;
-  color: #111827;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Smooth transitions for theme switching */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
 }
 

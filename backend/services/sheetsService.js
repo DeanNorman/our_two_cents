@@ -43,17 +43,25 @@ class SheetsService {
       });
 
       const rows = response.data.values || [];
-      const transactions = rows.map((row, index) => ({
-        id: parseInt(row[0]) || index + 1,
-        date: row[1],
-        user: row[2],
-        category: row[3],
-        amount: parseFloat(row[4]) || 0,
-        merchant: row[5] || '',
-        note: row[6] || '',
-        source: row[7] || 'manual',
-        confirmed: row[8] === 'TRUE' || row[8] === true,
-      }));
+      const transactions = rows
+        .map((row, index) => ({
+          id: row[0] !== undefined && row[0] !== '' ? parseInt(row[0]) : index + 1,
+          date: row[1],
+          user: row[2],
+          category: row[3],
+          amount: row[4] !== undefined && row[4] !== '' ? parseFloat(row[4]) : NaN,
+          merchant: row[5] || '',
+          note: row[6] || '',
+          source: row[7] || 'manual',
+          confirmed: row[8] === 'TRUE' || row[8] === true,
+        }))
+        .filter((t) =>
+          t.date &&
+          t.user &&
+          t.category &&
+          Number.isFinite(t.amount) &&
+          t.amount > 0
+        );
 
       if (month) {
         return transactions.filter(t => t.date && t.date.startsWith(month));
@@ -69,10 +77,13 @@ class SheetsService {
   async addTransaction(transaction) {
     try {
       const existingTransactions = await this.getTransactions();
-      const nextId = existingTransactions.length > 0 
-        ? Math.max(...existingTransactions.map(t => t.id)) + 1 
-        : 1;
-
+      const nextId = this.getNextTransactionId(existingTransactions);
+      const streak = await this.calculateUserStreak(
+        transaction.user,
+        transaction.date,
+        existingTransactions
+      );
+      
       const row = [
         nextId,
         transaction.date,
@@ -97,12 +108,79 @@ class SheetsService {
       return {
         id: nextId,
         ...transaction,
+        streak,
         confirmed: transaction.confirmed !== false,
       };
     } catch (error) {
       console.error('Error adding transaction:', error);
       throw error;
     }
+  }
+  
+  getNextTransactionId(transactions) {
+    const maxId = transactions.reduce((max, t) => (t.id > max ? t.id : max), 0);
+    return maxId + 1;
+  }
+
+  async calculateUserStreak(userName, transactionDate, transactions) {
+    try {
+      const allTransactions = transactions || (await this.getTransactions());
+      const newDate = this.normalizeDate(transactionDate);
+
+      if (!newDate) {
+        return 1;
+      }
+
+      const dateSet = new Set(
+        allTransactions
+          .filter(t => t.user === userName)
+          .map(t => this.normalizeDate(t.date))
+          .filter(Boolean)
+      );
+
+      dateSet.add(newDate);
+
+      let streak = 1;
+      let cursor = this.parseDateUtc(newDate);
+
+      while (true) {
+        const prev = new Date(cursor.getTime() - 24 * 60 * 60 * 1000);
+        const prevStr = this.formatDateUtc(prev);
+
+        if (!dateSet.has(prevStr)) {
+          break;
+        }
+
+        streak += 1;
+        cursor = prev;
+      }
+
+      return streak;
+    } catch (error) {
+      console.error('Error calculating streak:', error);
+      return 1; // Default to 1 on error
+    }
+  }
+
+  normalizeDate(dateValue) {
+    if (!dateValue || typeof dateValue !== 'string') {
+      return null;
+    }
+
+    const match = dateValue.match(/^(\d{4}-\d{2}-\d{2})/);
+    return match ? match[1] : null;
+  }
+
+  parseDateUtc(yyyyMmDd) {
+    const [year, month, day] = yyyyMmDd.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day));
+  }
+
+  formatDateUtc(date) {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   async getMonthlyBudgets(month) {
@@ -162,7 +240,9 @@ class SheetsService {
         return null;
       }
 
-      return userTransactions[userTransactions.length - 1];
+      return userTransactions.reduce((latest, current) =>
+        current.id > latest.id ? current : latest
+      , userTransactions[0]);
     } catch (error) {
       console.error('Error fetching last transaction:', error);
       throw error;

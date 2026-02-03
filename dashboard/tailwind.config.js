@@ -4,6 +4,7 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -17,6 +18,17 @@ export default {
         health: '#7ED321',
         savings: '#417505',
         other: '#9013FE',
+        coral: {
+          400: '#FF6B6B',
+          500: '#FF5252',
+          600: '#FF3838',
+        },
+      },
+      backdropBlur: {
+        xs: '2px',
+      },
+      animation: {
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
     },
   },

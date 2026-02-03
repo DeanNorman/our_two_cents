@@ -1,10 +1,12 @@
 class ParserService {
   parseMessage(text, categories) {
     const cleanText = text.trim().toLowerCase();
+    const normalizedText = this.stripCommandPrefix(cleanText);
 
-    const amount = this.extractAmount(cleanText);
-    const category = this.extractCategory(cleanText, categories);
-    const merchant = this.extractMerchant(cleanText, amount, category);
+    const amount = this.extractAmount(normalizedText);
+    const category = this.extractCategory(normalizedText, categories);
+    const categoryInfo = category ? categories.find(c => c.categoryId === category) || null : null;
+    const merchant = this.extractMerchant(normalizedText, amount, categoryInfo);
 
     return {
       amount,
@@ -12,6 +14,10 @@ class ParserService {
       merchant,
       isValid: amount !== null && category !== null,
     };
+  }
+
+  stripCommandPrefix(text) {
+    return text.replace(/^save\s+spend\b[:\-–—]?\s*/i, '').trim();
   }
 
   extractAmount(text) {
@@ -55,7 +61,7 @@ class ParserService {
     return null;
   }
 
-  extractMerchant(text, amount, category) {
+  extractMerchant(text, amount, categoryInfo) {
     let cleanText = text;
 
     if (amount !== null) {
@@ -63,15 +69,32 @@ class ParserService {
       cleanText = cleanText.replace(/\d+(?:,\d{3})*(?:\.\d{2})?/g, '');
     }
 
-    if (category !== null) {
-      cleanText = cleanText.replace(new RegExp(category, 'gi'), '');
+    if (categoryInfo) {
+      if (categoryInfo.categoryId) {
+        cleanText = cleanText.replace(
+          new RegExp(`\\b${this.escapeRegExp(categoryInfo.categoryId)}\\b`, 'gi'),
+          ''
+        );
+      }
+
+      if (categoryInfo.displayName) {
+        cleanText = cleanText.replace(
+          new RegExp(`\\b${this.escapeRegExp(categoryInfo.displayName)}\\b`, 'gi'),
+          ''
+        );
+      }
     }
 
     cleanText = cleanText.replace(/\b(rand|zar)\b/gi, '');
 
-    cleanText = cleanText.trim();
+    cleanText = cleanText.replace(/^\s*(at|from|to|for|on)\s+/i, '');
+    cleanText = cleanText.replace(/\s+/g, ' ').trim();
 
     return cleanText || null;
+  }
+
+  escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   detectBankNotification(text) {

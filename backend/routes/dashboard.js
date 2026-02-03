@@ -47,9 +47,16 @@ router.get('/overview', async (req, res) => {
 
 router.get('/categories', async (req, res) => {
   try {
-    const currentMonth = budgetService.getCurrentMonth();
-    const statuses = await budgetService.getAllCategoryStatuses(currentMonth);
-    res.json(statuses);
+    const categories = await sheetsService.getCategories();
+    res.json(
+      categories.map((category) => ({
+        id: category.categoryId,
+        name: category.categoryId,
+        displayName: category.displayName,
+        icon: category.icon,
+        color: category.color,
+      }))
+    );
   } catch (error) {
     console.error('Error getting categories:', error);
     res.status(500).json({ error: 'Failed to get categories' });
@@ -60,7 +67,10 @@ router.get('/transactions', async (req, res) => {
   try {
     const currentMonth = budgetService.getCurrentMonth();
     const transactions = await sheetsService.getTransactions(currentMonth);
-    res.json(transactions);
+    const sorted = transactions
+      .slice()
+      .sort((a, b) => (b.id || 0) - (a.id || 0));
+    res.json(sorted);
   } catch (error) {
     console.error('Error getting transactions:', error);
     res.status(500).json({ error: 'Failed to get transactions' });
@@ -72,7 +82,10 @@ router.get('/transactions/:category', async (req, res) => {
     const { category } = req.params;
     const currentMonth = budgetService.getCurrentMonth();
     const transactions = await sheetsService.getTransactions(currentMonth);
-    const filtered = transactions.filter(t => t.category === category);
+    const filtered = transactions
+      .filter(t => t.category === category)
+      .slice()
+      .sort((a, b) => (b.id || 0) - (a.id || 0));
     res.json(filtered);
   } catch (error) {
     console.error('Error getting transactions by category:', error);
