@@ -127,11 +127,16 @@ router.post('/transactions', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    const parsedAmount = parseFloat(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ error: 'Amount must be a positive number' });
+    }
+
     const transaction = {
       date: new Date().toISOString().split('T')[0],
       user,
       category,
-      amount: parseFloat(amount),
+      amount: parsedAmount,
       merchant: merchant || '',
       note: note || '',
       source: 'manual',

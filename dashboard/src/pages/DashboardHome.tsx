@@ -10,7 +10,6 @@ import { CategoryVisualizer } from '../components/CategoryVisualizer';
 import { MonthlyWins } from '../components/MonthlyWins';
 import { InsightsList } from '../components/InsightsList';
 import { PhaseGate } from '../components/PhaseGate';
-import { usePhase } from '../contexts/PhaseContext';
 import { Category, Transaction } from '../types';
 
 const containerVariants = {
@@ -29,7 +28,6 @@ const itemVariants = {
 };
 
 export const DashboardHome: React.FC = () => {
-  usePhase();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
