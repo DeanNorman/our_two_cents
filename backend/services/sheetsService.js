@@ -249,6 +249,61 @@ class SheetsService {
     }
   }
 
+  async updateTransaction(transactionId, updates) {
+    try {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.sheetId,
+        range: 'Transactions!A2:I',
+      });
+
+      const rows = response.data.values || [];
+      const rowIndex = rows.findIndex(row => parseInt(row[0]) === transactionId);
+
+      if (rowIndex === -1) {
+        throw new Error('Transaction not found');
+      }
+
+      const existing = rows[rowIndex];
+      const updated = [
+        existing[0], // id (never changes)
+        updates.date || existing[1],
+        updates.user || existing[2],
+        updates.category || existing[3],
+        updates.amount !== undefined ? updates.amount : existing[4],
+        updates.merchant !== undefined ? updates.merchant : (existing[5] || ''),
+        updates.note !== undefined ? updates.note : (existing[6] || ''),
+        existing[7] || 'manual', // source (never changes)
+        existing[8] || 'TRUE', // confirmed (never changes)
+      ];
+
+      const actualRowNumber = rowIndex + 2;
+
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.sheetId,
+        range: `Transactions!A${actualRowNumber}:I${actualRowNumber}`,
+        valueInputOption: 'RAW',
+        resource: {
+          values: [updated],
+        },
+      });
+
+      return {
+        id: transactionId,
+        date: updated[1],
+        user: updated[2],
+        category: updated[3],
+        amount: parseFloat(updated[4]),
+        merchant: updated[5],
+        note: updated[6],
+        source: updated[7],
+        confirmed: updated[8] === 'TRUE',
+      };
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      throw error;
+    }
+  }
+
   async deleteTransaction(transactionId) {
     try {
       const response = await this.sheets.spreadsheets.values.get({

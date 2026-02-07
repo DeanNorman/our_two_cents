@@ -1,21 +1,23 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Check, Loader2 } from 'lucide-react';
-import { addTransaction } from '../services/api';
+import { X, Check, Loader2, Trash2 } from 'lucide-react';
+import { updateTransaction, deleteTransaction } from '../services/api';
 import { Category, Transaction } from '../types';
 
-interface AddTransactionModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface EditTransactionModalProps {
+  transaction: Transaction | null;
   categories: Category[];
-  onTransactionAdded: (transaction: Transaction) => void;
+  onClose: () => void;
+  onUpdated: (transaction: Transaction) => void;
+  onDeleted: (id: number) => void;
 }
 
-export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
-  isOpen,
-  onClose,
+export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
+  transaction,
   categories,
-  onTransactionAdded,
+  onClose,
+  onUpdated,
+  onDeleted,
 }) => {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -23,36 +25,46 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [note, setNote] = useState('');
   const [user, setUser] = useState<'Dean' | 'Abigail'>('Dean');
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<'updated' | 'deleted' | null>(null);
   const amountRef = useRef<HTMLInputElement>(null);
 
+  const isOpen = transaction !== null;
+
   useEffect(() => {
-    if (isOpen) {
-      setSaveError(null);
-      setSuccess(false);
+    if (transaction) {
+      setAmount(String(transaction.amount));
+      setCategory(transaction.category);
+      setMerchant(transaction.merchant || '');
+      setNote(transaction.note || '');
+      setUser(transaction.user as 'Dean' | 'Abigail');
+      setError(null);
+      setSuccess(null);
+      setConfirmDelete(false);
+      setSaving(false);
+      setDeleting(false);
       setTimeout(() => amountRef.current?.focus(), 100);
     }
-  }, [isOpen]);
+  }, [transaction]);
 
-  const resetForm = () => {
-    setAmount('');
-    setCategory('');
-    setMerchant('');
-    setNote('');
-    setSaving(false);
-    setSaveError(null);
-    setSuccess(false);
+  const handleClose = () => {
+    setConfirmDelete(false);
+    setError(null);
+    setSuccess(null);
+    onClose();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!transaction) return;
 
     try {
       setSaving(true);
-      setSaveError(null);
+      setError(null);
 
-      const created = await addTransaction({
+      const updated = await updateTransaction(transaction.id, {
         user,
         category,
         amount: parseFloat(amount),
@@ -60,25 +72,47 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         note,
       });
 
-      setSuccess(true);
-      onTransactionAdded(created);
+      setSuccess('updated');
+      onUpdated(updated);
 
       setTimeout(() => {
-        resetForm();
-        onClose();
-      }, 800);
+        handleClose();
+      }, 600);
     } catch (err: any) {
-      setSaveError(err?.response?.data?.error || err?.message || 'Failed to save. Is the backend running?');
+      setError(err?.response?.data?.error || err?.message || 'Failed to update');
       setSaving(false);
     }
   };
 
-  const handleClose = () => {
-    resetForm();
-    onClose();
+  const handleDelete = async () => {
+    if (!transaction) return;
+
+    try {
+      setDeleting(true);
+      setError(null);
+
+      await deleteTransaction(transaction.id);
+
+      setSuccess('deleted');
+      onDeleted(transaction.id);
+
+      setTimeout(() => {
+        handleClose();
+      }, 600);
+    } catch (err: any) {
+      setError(err?.response?.data?.error || err?.message || 'Failed to delete');
+      setDeleting(false);
+    }
   };
 
   const selectedCat = categories.find(c => c.id === category);
+  const hasChanges = transaction && (
+    String(transaction.amount) !== amount ||
+    transaction.category !== category ||
+    (transaction.merchant || '') !== merchant ||
+    (transaction.note || '') !== note ||
+    transaction.user !== user
+  );
 
   return (
     <AnimatePresence>
@@ -98,10 +132,10 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
           >
-            <div className="w-full max-w-md backdrop-blur-xl bg-gradient-to-b from-white/15 to-white/5 border border-white/20 rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden">
+            <div className="w-full max-w-md backdrop-blur-xl bg-gradient-to-b from-white/15 to-white/5 border border-white/20 rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden relative">
               {/* Header */}
               <div className="flex items-center justify-between px-6 pt-6 pb-3">
-                <h3 className="text-lg font-semibold text-white">Log a Spend</h3>
+                <h3 className="text-lg font-semibold text-white">Edit Transaction</h3>
                 <button
                   type="button"
                   aria-label="Close"
@@ -125,34 +159,42 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: 'spring', damping: 10 }}
-                      className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center mb-3"
+                      className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 ${
+                        success === 'deleted' ? 'bg-red-500' : 'bg-green-500'
+                      }`}
                     >
-                      <Check size={32} className="text-white" strokeWidth={3} />
+                      {success === 'deleted' ? (
+                        <Trash2 size={28} className="text-white" />
+                      ) : (
+                        <Check size={32} className="text-white" strokeWidth={3} />
+                      )}
                     </motion.div>
-                    <p className="text-white font-semibold">Logged!</p>
+                    <p className="text-white font-semibold">
+                      {success === 'deleted' ? 'Deleted' : 'Updated!'}
+                    </p>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
-                {saveError && (
+              <form onSubmit={handleUpdate} className="px-6 pb-6 space-y-4">
+                {error && (
                   <motion.div
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="text-xs text-red-200 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3"
                   >
-                    {saveError}
+                    {error}
                   </motion.div>
                 )}
 
-                {/* Who — toggle pills instead of dropdown */}
+                {/* Who — toggle pills */}
                 <div className="flex gap-2">
                   {(['Dean', 'Abigail'] as const).map((name) => (
                     <button
                       key={name}
                       type="button"
                       onClick={() => setUser(name)}
-                      disabled={saving}
+                      disabled={saving || deleting}
                       className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                         user === name
                           ? name === 'Dean'
@@ -171,7 +213,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   ))}
                 </div>
 
-                {/* Amount — big and prominent */}
+                {/* Amount */}
                 <div>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-white/40">R</span>
@@ -186,7 +228,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                       placeholder="0"
                       className="w-full pl-10 pr-4 py-4 rounded-xl bg-white/5 border border-white/10 text-2xl font-bold text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/30 transition-all"
                       required
-                      disabled={saving}
+                      disabled={saving || deleting}
                     />
                   </div>
                 </div>
@@ -202,7 +244,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                         key={cat.id}
                         type="button"
                         onClick={() => setCategory(cat.id)}
-                        disabled={saving}
+                        disabled={saving || deleting}
                         className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl text-center transition-all ${
                           category === cat.id
                             ? 'bg-white/15 border border-white/25 shadow-lg'
@@ -218,12 +260,9 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                       </button>
                     ))}
                   </div>
-                  {!category && (
-                    <input type="text" required value="" className="sr-only" tabIndex={-1} onChange={() => {}} />
-                  )}
                 </div>
 
-                {/* Merchant + Note in a row */}
+                {/* Merchant + Note */}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs font-medium text-white/40 mb-1.5 uppercase tracking-wider">
@@ -235,7 +274,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                       onChange={(e) => setMerchant(e.target.value)}
                       placeholder="Woolworths"
                       className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/30 transition-all"
-                      disabled={saving}
+                      disabled={saving || deleting}
                     />
                   </div>
                   <div>
@@ -248,52 +287,81 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                       onChange={(e) => setNote(e.target.value)}
                       placeholder="Optional"
                       className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/30 transition-all"
-                      disabled={saving}
+                      disabled={saving || deleting}
                     />
                   </div>
                 </div>
 
-                {/* Submit */}
-                <button
-                  type="submit"
-                  disabled={saving || !amount || !category}
-                  className={`w-full px-4 py-3.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-                    saving || !amount || !category
-                      ? 'bg-white/5 text-white/30 border border-white/5 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30'
-                  }`}
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Saving...
-                    </>
+                {/* Action buttons */}
+                <div className="flex gap-2 pt-2">
+                  {/* Delete */}
+                  {!confirmDelete ? (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(true)}
+                      disabled={saving || deleting}
+                      className="px-4 py-3 rounded-xl bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/20 text-white/40 hover:text-red-400 transition-all flex items-center justify-center"
+                      title="Delete transaction"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   ) : (
-                    <>
-                      {selectedCat ? `Log R${amount || '0'} to ${selectedCat.displayName}` : 'Log Spend'}
-                    </>
+                    <motion.button
+                      initial={{ scale: 0.9 }}
+                      animate={{ scale: 1 }}
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="px-4 py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 font-medium text-sm transition-all flex items-center justify-center gap-2"
+                    >
+                      {deleting ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={16} />
+                      )}
+                      {deleting ? 'Deleting...' : 'Confirm Delete'}
+                    </motion.button>
                   )}
-                </button>
+
+                  {/* Save */}
+                  <button
+                    type="submit"
+                    disabled={saving || deleting || !amount || !category || !hasChanges}
+                    className={`flex-1 px-4 py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                      saving || deleting || !amount || !category || !hasChanges
+                        ? 'bg-white/5 text-white/30 border border-white/5 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg shadow-blue-500/20'
+                    }`}
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        Saving...
+                      </>
+                    ) : !hasChanges ? (
+                      'No changes'
+                    ) : (
+                      <>
+                        {selectedCat ? `Save R${amount || '0'} to ${selectedCat.displayName}` : 'Save Changes'}
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {confirmDelete && (
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-xs text-red-400/60 text-center"
+                  >
+                    This will permanently remove this transaction
+                  </motion.p>
+                )}
               </form>
             </div>
           </motion.div>
         </>
       )}
     </AnimatePresence>
-  );
-};
-
-export const FloatingActionButton: React.FC<{ onClick: () => void }> = ({ onClick }) => {
-  return (
-    <motion.button
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
-      whileHover={{ scale: 1.1 }}
-      whileTap={{ scale: 0.95 }}
-      onClick={onClick}
-      className="fixed bottom-20 md:bottom-8 right-8 w-14 h-14 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 shadow-2xl flex items-center justify-center text-white z-40 hover:shadow-blue-500/50 transition-shadow"
-    >
-      <Plus size={24} strokeWidth={2.5} />
-    </motion.button>
   );
 };

@@ -13,9 +13,11 @@ import { motion } from 'framer-motion';
 import { getGreeting } from '../services/mockData';
 import { usePhase } from '../contexts/PhaseContext';
 import { PhaseBadge, PhaseSettings } from '../components/PhaseSettings';
+import { DashboardHome } from '../pages/DashboardHome';
+import { TransactionsPage } from '../pages/TransactionsPage';
 
 interface DashboardLayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 interface NavItem {
@@ -148,7 +150,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
           {/* Page Content */}
           <main className="flex-1 overflow-y-auto p-6">
-            {children}
+            {activeNav === 'transactions' ? <TransactionsPage /> : children ?? <DashboardHome />}
           </main>
         </div>
       </div>

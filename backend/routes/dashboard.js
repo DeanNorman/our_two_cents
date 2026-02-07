@@ -151,6 +151,59 @@ router.post('/transactions', async (req, res) => {
   }
 });
 
+router.put('/transactions/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'Invalid transaction ID' });
+    }
+
+    const { user, category, amount, merchant, note, date } = req.body;
+
+    if (amount !== undefined) {
+      const parsedAmount = parseFloat(amount);
+      if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+        return res.status(400).json({ error: 'Amount must be a positive number' });
+      }
+    }
+
+    const updates = {};
+    if (user) updates.user = user;
+    if (category) updates.category = category;
+    if (amount !== undefined) updates.amount = parseFloat(amount);
+    if (merchant !== undefined) updates.merchant = merchant;
+    if (note !== undefined) updates.note = note;
+    if (date) updates.date = date;
+
+    const updated = await sheetsService.updateTransaction(id, updates);
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating transaction:', error);
+    if (error.message === 'Transaction not found') {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+    res.status(500).json({ error: 'Failed to update transaction' });
+  }
+});
+
+router.delete('/transactions/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'Invalid transaction ID' });
+    }
+
+    await sheetsService.deleteTransaction(id);
+    res.json({ message: 'Transaction deleted', id });
+  } catch (error) {
+    console.error('Error deleting transaction:', error);
+    if (error.message === 'Transaction not found') {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+    res.status(500).json({ error: 'Failed to delete transaction' });
+  }
+});
+
 router.delete('/transactions/last/:user', async (req, res) => {
   try {
     const { user } = req.params;

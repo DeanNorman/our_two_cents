@@ -52,6 +52,27 @@ export const addTransaction = async (
   return response.data;
 };
 
+export type UpdateTransactionRequest = {
+  user?: string;
+  category?: string;
+  amount?: number;
+  merchant?: string;
+  note?: string;
+  date?: string;
+};
+
+export const updateTransaction = async (
+  id: number,
+  updates: UpdateTransactionRequest
+): Promise<Transaction> => {
+  const response = await api.put(`/transactions/${id}`, updates);
+  return response.data;
+};
+
+export const deleteTransaction = async (id: number): Promise<void> => {
+  await api.delete(`/transactions/${id}`);
+};
+
 export const getGoal = async (): Promise<SavingsGoal | null> => {
   const response = await api.get('/goal');
   return response.data;

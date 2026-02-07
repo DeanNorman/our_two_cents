@@ -5,7 +5,6 @@ import { getCategories, getTransactions } from '../services/api';
 import { TransactionsList } from '../components/TransactionsList';
 import { GlassCard } from '../components/ui/GlassCard';
 import { AddTransactionModal, FloatingActionButton } from '../components/AddTransactionModal';
-import { WhatsAppQuickActions } from '../components/WhatsAppQuickActions';
 import { CategoryVisualizer } from '../components/CategoryVisualizer';
 import { MonthlyWins } from '../components/MonthlyWins';
 import { InsightsList } from '../components/InsightsList';
@@ -301,8 +300,39 @@ export const DashboardHome: React.FC = () => {
 
       {/* Sidebar Widget Area (Right Side on Desktop) */}
       <div className="w-full lg:w-80 space-y-6">
+        {/* Quick Add Widget */}
         <motion.div variants={itemVariants}>
-          <WhatsAppQuickActions />
+          <GlassCard className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-blue-500/20">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-white">Quick Add</h3>
+              <span className="text-xs text-white/40">Log a spend right here</span>
+            </div>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <span className="text-white text-lg">+</span>
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-medium text-white">Log a new spend</p>
+                <p className="text-xs text-white/40">Pick who, how much, and where</p>
+              </div>
+            </button>
+            {recentTransactions.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <p className="text-[10px] text-white/30 uppercase tracking-wider mb-2">Last logged</p>
+                <div className="flex items-center gap-2 text-xs text-white/50">
+                  <span className="text-sm">{categoriesForDisplay.find(c => c.id === recentTransactions[0]?.category || c.name === recentTransactions[0]?.category)?.icon || '📦'}</span>
+                  <span className="text-white/70 font-medium">R{recentTransactions[0]?.amount.toLocaleString()}</span>
+                  <span className="text-white/30">·</span>
+                  <span>{recentTransactions[0]?.merchant || recentTransactions[0]?.category}</span>
+                  <span className="text-white/30">·</span>
+                  <span>{recentTransactions[0]?.user}</span>
+                </div>
+              </div>
+            )}
+          </GlassCard>
         </motion.div>
 
         {/* Phase 2+: Monthly Wins */}
