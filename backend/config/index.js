@@ -29,4 +29,6 @@ module.exports = {
   dashboard: {
     token: process.env.DASHBOARD_TOKEN,
   },
+
+  phase: parseInt(process.env.APP_PHASE || '1', 10),
 };

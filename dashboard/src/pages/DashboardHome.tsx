@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, Flame } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getCategories, getTransactions } from '../services/api';
 import { TransactionsList } from '../components/TransactionsList';
 import { GlassCard } from '../components/ui/GlassCard';
 import { AddTransactionModal, FloatingActionButton } from '../components/AddTransactionModal';
 import { WhatsAppQuickActions } from '../components/WhatsAppQuickActions';
+import { CategoryVisualizer } from '../components/CategoryVisualizer';
+import { MonthlyWins } from '../components/MonthlyWins';
+import { InsightsList } from '../components/InsightsList';
+import { PhaseGate } from '../components/PhaseGate';
+import { usePhase } from '../contexts/PhaseContext';
 import { Category, Transaction } from '../types';
 
 const containerVariants = {
@@ -24,6 +29,7 @@ const itemVariants = {
 };
 
 export const DashboardHome: React.FC = () => {
+  usePhase();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -136,9 +142,34 @@ export const DashboardHome: React.FC = () => {
   const transactionCount = recentTransactions.length;
   
   // Calculate days tracked based on unique dates in transactions
-  const uniqueDates = new Set(recentTransactions.map((t) => t.date.split('T')[0]));
+  const uniqueDates = useMemo(
+    () => new Set(recentTransactions.map((t) => t.date.split('T')[0])),
+    [recentTransactions]
+  );
   const daysTracked = uniqueDates.size;
   const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+
+  // Calculate a simple tracking streak (consecutive days ending today or yesterday)
+  const trackingStreak = useMemo(() => {
+    if (uniqueDates.size === 0) return 0;
+    const sorted = Array.from(uniqueDates).sort().reverse();
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const yesterdayStr = new Date(today.getTime() - 86400000).toISOString().split('T')[0];
+    if (sorted[0] !== todayStr && sorted[0] !== yesterdayStr) return 0;
+    let streak = 1;
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = new Date(sorted[i - 1] + 'T00:00:00');
+      const curr = new Date(sorted[i] + 'T00:00:00');
+      const diffDays = (prev.getTime() - curr.getTime()) / 86400000;
+      if (diffDays === 1) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }, [uniqueDates]);
   
   if (loading) {
     return (
@@ -189,7 +220,7 @@ export const DashboardHome: React.FC = () => {
             </div>
 
             {/* Phase 1 Stats */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="backdrop-blur-xl bg-white/10 rounded-xl p-4 border border-white/10">
                 <p className="text-xs text-white/60 mb-1">Transactions</p>
                 <p className="text-2xl font-bold text-white">{transactionCount}</p>
@@ -198,11 +229,34 @@ export const DashboardHome: React.FC = () => {
                 <p className="text-xs text-white/60 mb-1">Days Tracked</p>
                 <p className="text-2xl font-bold text-white">{daysTracked} / {daysInMonth}</p>
               </div>
+              <div className="backdrop-blur-xl bg-white/10 rounded-xl p-4 border border-white/10">
+                <div className="flex items-center gap-1 mb-1">
+                  <Flame size={12} className="text-orange-400" />
+                  <p className="text-xs text-white/60">Streak</p>
+                </div>
+                <p className="text-2xl font-bold text-white">{trackingStreak}<span className="text-sm font-normal text-white/50"> days</span></p>
+              </div>
             </div>
           </div>
         </motion.div>
 
-        {/* Category Breakdown - Simplified for Phase 1 */}
+        {/* Phase 2+: Pie Chart Visualizer */}
+        <PhaseGate minPhase={2}>
+          <motion.div variants={itemVariants}>
+            <CategoryVisualizer
+              categories={categoriesForDisplay.map((c) => ({
+                ...c,
+                totalSpent: categorySpentById[c.id] ?? 0,
+              }))}
+              selectedCategory={selectedCategory}
+              onCategorySelect={(name) =>
+                setSelectedCategory((prev) => (prev === name ? null : name))
+              }
+            />
+          </motion.div>
+        </PhaseGate>
+
+        {/* Category Breakdown - All phases, simplified bars */}
         <motion.div variants={itemVariants}>
           <GlassCard>
             <h3 className="text-lg font-semibold text-white mb-4">This Month's Spending</h3>
@@ -252,6 +306,34 @@ export const DashboardHome: React.FC = () => {
         <motion.div variants={itemVariants}>
           <WhatsAppQuickActions />
         </motion.div>
+
+        {/* Phase 2+: Monthly Wins */}
+        <PhaseGate minPhase={2}>
+          <motion.div variants={itemVariants}>
+            <MonthlyWins
+              categories={categoriesForDisplay.map((c) => ({
+                ...c,
+                totalSpent: categorySpentById[c.id] ?? 0,
+              }))}
+              trackingStreak={trackingStreak}
+            />
+          </motion.div>
+        </PhaseGate>
+
+        {/* Phase 3+: Insights & Suggestions */}
+        <PhaseGate minPhase={3}>
+          <motion.div variants={itemVariants}>
+            <InsightsList
+              categories={categoriesForDisplay.map((c) => ({
+                ...c,
+                totalSpent: categorySpentById[c.id] ?? 0,
+              }))}
+              onCategorySelect={(name) =>
+                setSelectedCategory((prev) => (prev === name ? null : name))
+              }
+            />
+          </motion.div>
+        </PhaseGate>
 
         {/* Recent Transactions */}
         <motion.div variants={itemVariants}>

@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getGreeting } from '../services/mockData';
+import { usePhase } from '../contexts/PhaseContext';
+import { PhaseBadge, PhaseSettings } from '../components/PhaseSettings';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -33,6 +35,13 @@ const navItems: NavItem[] = [
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [activeNav, setActiveNav] = useState('dashboard');
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [phaseSettingsOpen, setPhaseSettingsOpen] = useState(false);
+  const { phase } = usePhase();
+
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.id === 'analytics') return phase >= 2;
+    return true;
+  });
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -56,7 +65,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
 
           <nav className="flex-1 space-y-2">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActiveNav(item.id)}
@@ -84,7 +93,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-white">Dean & Abigail</p>
-                <p className="text-xs text-white/60">Our shared dashboard</p>
+                <PhaseBadge onClick={() => setPhaseSettingsOpen(true)} />
               </div>
             </div>
           </div>
@@ -98,6 +107,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               <div>
                 <h2 className="text-2xl font-bold text-white">{getGreeting()}, Dean & Abigail</h2>
                 <p className="text-sm text-white/60">Logged in WhatsApp, reviewed here.</p>
+                <div className="mt-1 md:hidden">
+                  <PhaseBadge onClick={() => setPhaseSettingsOpen(true)} />
+                </div>
               </div>
 
               <div className="flex items-center gap-3">
@@ -144,7 +156,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
       {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 backdrop-blur-xl bg-white/10 border-t border-white/10 px-4 py-3 z-50">
         <div className="flex items-center justify-around">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveNav(item.id)}
@@ -160,6 +172,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           ))}
         </div>
       </nav>
+      <PhaseSettings isOpen={phaseSettingsOpen} onClose={() => setPhaseSettingsOpen(false)} />
     </div>
   );
 };

@@ -25,11 +25,25 @@ class TwilioService {
     }
   }
 
+  formatSimpleReply(transaction, categoryInfo) {
+    const { amount, merchant } = transaction;
+    const displayName = categoryInfo?.displayName || transaction.category;
+
+    let message = `✅ Logged: R${amount.toFixed(2)} — ${displayName}`;
+
+    if (merchant) {
+      message += ` (${merchant})`;
+    }
+
+    if (transaction.streak && transaction.streak > 1) {
+      message += `\n\nYou're on a ${transaction.streak}-day tracking streak! 🔥`;
+    }
+
+    return message;
+  }
+
   formatBudgetReply(transaction, budgetStatus, categoryInfo) {
-    const { amount, category, merchant, user } = transaction;
-    
-    // Phase 1: Simple response without budget info or warnings
-    const icon = categoryInfo?.icon || '💰';
+    const { amount, category, merchant } = transaction;
     const displayName = categoryInfo?.displayName || category;
 
     let message = `✅ Logged: R${amount.toFixed(2)} — ${displayName}`;
@@ -37,10 +51,15 @@ class TwilioService {
     if (merchant) {
       message += ` (${merchant})`;
     }
+
+    if (budgetStatus) {
+      const { totalSpent, budgetAmount, remaining, percentUsed } = budgetStatus;
+      message += `\n📊 ${displayName}: R${totalSpent} of R${budgetAmount} used (${percentUsed}%)`;
+      message += `\n💰 R${remaining} remaining`;
+    }
     
-    // Check if we have a streak and add it (will implement streak tracking later)
     if (transaction.streak && transaction.streak > 1) {
-      message += `\n\nYou're on a ${transaction.streak}-day tracking streak! 🔥`;
+      message += `\n\n🔥 ${transaction.streak}-day tracking streak!`;
     }
     
     return message;

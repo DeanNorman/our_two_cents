@@ -6,6 +6,8 @@ const budgetService = require('../services/budgetService');
 const twilioService = require('../services/twilioService');
 const config = require('../config');
 
+const currentPhase = config.phase || 1;
+
 router.post('/whatsapp', async (req, res) => {
   try {
     const { Body, From } = req.body;
@@ -36,6 +38,10 @@ router.post('/whatsapp', async (req, res) => {
     }
 
     if (command === 'balance') {
+      if (currentPhase < 3) {
+        await twilioService.sendWhatsAppMessage(fromNumber, '📊 Balance tracking unlocks in Phase 3.\nFor now, just keep logging — you\'re building great habits!');
+        return res.status(200).send('OK');
+      }
       const currentMonth = budgetService.getCurrentMonth();
       const statuses = await budgetService.getAllCategoryStatuses(currentMonth);
       const balanceMessage = twilioService.formatBalanceMessage(statuses);
@@ -83,13 +89,17 @@ router.post('/whatsapp', async (req, res) => {
       confirmed: true,
     };
 
-    await sheetsService.addTransaction(transaction);
+    const created = await sheetsService.addTransaction(transaction);
+    const categoryInfo = categories.find(c => c.id === parsed.category);
 
-    const currentMonth = budgetService.getCurrentMonth();
-    const budgetStatus = await budgetService.calculateBudgetStatus(parsed.category, currentMonth);
-    const categoryInfo = categories.find(c => c.categoryId === parsed.category);
-
-    const replyMessage = twilioService.formatBudgetReply(transaction, budgetStatus, categoryInfo);
+    let replyMessage;
+    if (currentPhase >= 3) {
+      const currentMonth = budgetService.getCurrentMonth();
+      const budgetStatus = await budgetService.calculateBudgetStatus(parsed.category, currentMonth);
+      replyMessage = twilioService.formatBudgetReply({ ...transaction, streak: created.streak }, budgetStatus, categoryInfo);
+    } else {
+      replyMessage = twilioService.formatSimpleReply({ ...transaction, streak: created.streak }, categoryInfo);
+    }
     await twilioService.sendWhatsAppMessage(fromNumber, replyMessage);
 
     res.status(200).send('OK');
